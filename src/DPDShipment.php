@@ -12,10 +12,10 @@ class DPDShipment{
     protected $authorisation;
 
     protected $predictCountries = [
-        'BE', 'NL', 'DE', 'AT', 
-        'PL', 'FR', 'PT', 'GB', 
-        'LU', 'EE', 'CH', 'IE', 
-        'SK', 'LV', 'SI', 'LT', 
+        'BE', 'NL', 'DE', 'AT',
+        'PL', 'FR', 'PT', 'GB',
+        'LU', 'EE', 'CH', 'IE',
+        'SK', 'LV', 'SI', 'LT',
         'CZ', 'HU'
     ];
 
@@ -46,22 +46,22 @@ class DPDShipment{
                     'fax' => null,
                     'customerNumber' => null,
                 ],
-                'recipient' => [           
-                    'name1' => null,         
-                    'name2' => null,       
-                    'street' => null,       
-                    'houseNo' => null, 
+                'recipient' => [
+                    'name1' => null,
+                    'name2' => null,
+                    'street' => null,
+                    'houseNo' => null,
                     'state' => null,
                     'country' => null,
                     'gln' => null,
                     'zipCode' => null,
                     'customerNumber' => null,
-                    'contact' => null,        
-                    'phone' => null,                 
-                    'fax' => null,                 
-                    'email' => null,            
-                    'city' => null,       
-                    'comment' => null 
+                    'contact' => null,
+                    'phone' => null,
+                    'fax' => null,
+                    'email' => null,
+                    'city' => null,
+                    'comment' => null
                 ]
             ],
             'parcels' => [],
@@ -82,16 +82,16 @@ class DPDShipment{
     const TRACKING_URL = 'https://tracking.dpd.de/parcelstatus?locale=:lang&query=:awb';
 
     /**
-     * @param object  DPDAuthorisation    $authorisationObject 
+     * @param object  DPDAuthorisation    $authorisationObject
      * @param boolean [$wsdlCache         = true]
      */
-    public function __construct(DPDAuthorisation $authorisationObject, $wsdlCache = true)
+    public function __construct(DPDAuthorisation $authorisationObject, $wsdlCache = false)
     {
         $this->authorisation = $authorisationObject->authorisation;
         $this->environment = [
             'wsdlCache' => $wsdlCache,
-            'shipWsdl'  => ($this->authorisation['staging'] ? self::TEST_SHIP_WSDL : self::SHIP_WSDL),
-        ];   
+            'shipWsdl'  => $this->getWsdl(),
+        ];
         $this->storeOrderMessage['order']['generalShipmentData']['sendingDepot'] = $this->authorisation['token']->depot;
     }
 
@@ -103,11 +103,11 @@ class DPDShipment{
     public function addParcel($array)
     {
         if (!isset($array['weight']) or !isset($array['height']) or !isset($array['length']) or !isset($array['width'])){
-            throw new Exception('Parcel array not complete');      
+            throw new Exception('Parcel array not complete');
         }
-        $volume = str_pad((string) ceil($array['length']), 3, '0', STR_PAD_LEFT); 
-        $volume .= str_pad((string) ceil($array['width']), 3, '0', STR_PAD_LEFT); 
-        $volume .= str_pad((string) ceil($array['height']), 3, '0', STR_PAD_LEFT); 
+        $volume = str_pad((string) ceil($array['length']), 3, '0', STR_PAD_LEFT);
+        $volume .= str_pad((string) ceil($array['width']), 3, '0', STR_PAD_LEFT);
+        $volume .= str_pad((string) ceil($array['height']), 3, '0', STR_PAD_LEFT);
 
         $this->storeOrderMessage['order']['parcels'][] = [
             'volume' => $volume,
@@ -124,13 +124,13 @@ class DPDShipment{
 
         if (isset($this->storeOrderMessage['order']['productAndServiceData']['predict'])){
             if (!in_array(strtoupper($this->storeOrderMessage['order']['generalShipmentData']['recipient']['country']), $this->predictCountries)){
-                throw new Exception('Predict service not available for this destination');     
+                throw new Exception('Predict service not available for this destination');
             }
         }
         if (count($this->storeOrderMessage['order']['parcels']) === 0){
-            throw new Exception('Create at least 1 parcel');     
+            throw new Exception('Create at least 1 parcel');
         }
-        
+
         if ($this->environment['wsdlCache']){
             $soapParams = [
                 'cache_wsdl' => WSDL_CACHE_BOTH
@@ -142,7 +142,7 @@ class DPDShipment{
                 'exceptions' => true
             ];
         }
-        
+
         try{
 
             $client = new Soapclient($this->environment['shipWsdl'], $soapParams);
@@ -151,7 +151,7 @@ class DPDShipment{
             $response = $client->storeOrders($this->storeOrderMessage);
 
             if (isset($response->orderResult->shipmentResponses->faults)){
-                throw new Exception($response->orderResult->shipmentResponses->faults->message);   
+                throw new Exception($response->orderResult->shipmentResponses->faults->message);
             }
 
             $this->label = $response->orderResult->parcellabelsPDF;
@@ -175,12 +175,12 @@ class DPDShipment{
                         ':awb' => $response->orderResult->shipmentResponses->parcelInformation->parcelLabelNumber,
                         ':lang' => $this->trackingLanguage
                     ])
-                ];    
+                ];
             }
         }
         catch (SoapFault $e)
         {
-         throw new Exception($e->faultstring);   
+         throw new Exception($e->faultstring);
         }
 
     }
@@ -196,34 +196,34 @@ class DPDShipment{
     {
 
         if (!isset($array['channel']) or !isset($array['value']) or !isset($array['language'])){
-            throw new Exception('Predict array not complete');      
+            throw new Exception('Predict array not complete');
         }
 
         switch (strtolower($array['channel'])) {
             case 'email':
                 $array['channel'] = 1;
                 if (!filter_var($array['value'], FILTER_VALIDATE_EMAIL)) {
-                    throw new Exception('Predict email address not valid');      
+                    throw new Exception('Predict email address not valid');
                 }
                 break;
             case 'telephone':
                 $array['channel'] = 2;
                 if (empty($array['value'])){
-                    throw new Exception('Predict value (telephone) empty');      
+                    throw new Exception('Predict value (telephone) empty');
                 }
                 break;
             case 'sms':
                 $array['channel'] = 3;
                 if (empty($array['value'])){
-                    throw new Exception('Predict value (sms) empty');      
+                    throw new Exception('Predict value (sms) empty');
                 }
                 break;
             default:
-                throw new Exception('Predict channel not allowed');   
+                throw new Exception('Predict channel not allowed');
         }
 
         if (ctype_alpha($array['language']) && strlen($array['language']) === 2){
-            $array['language'] = strtoupper($array['language']);        
+            $array['language'] = strtoupper($array['language']);
         }
         $this->storeOrderMessage['order']['productAndServiceData']['predict'] = $array;
     }
@@ -234,7 +234,7 @@ class DPDShipment{
      */
     public function getParcelResponses()
     {
-     return $this->airWayBills;   
+     return $this->airWayBills;
     }
 
     /**
@@ -252,7 +252,7 @@ class DPDShipment{
      */
     public function setSaturdayDelivery($bool)
     {
-     $this->storeOrderMessage['order']['productAndServiceData']['saturdayDelivery'] = $bool; 
+     $this->storeOrderMessage['order']['productAndServiceData']['saturdayDelivery'] = $bool;
     }
 
     /**
@@ -283,23 +283,34 @@ class DPDShipment{
     {
      $this->storeOrderMessage['printOptions'] = array_merge($this->storeOrderMessage['printOptions'], $printoptions);
     }
-    
+
     /**
      * Set the language for the track & trace link
      * @param string $language format: en_EN
      */
     public function setTrackingLanguage($language)
     {
-     $this->trackingLanguage = $language;  
+     $this->trackingLanguage = $language;
     }
-    
+
     /**
      * Get's the shipment label pdf as a string
      * @return string
      */
     public function getLabels()
     {
-     return $this->label;   
+     return $this->label;
+    }
+
+    /*
+     * When no zone is specified, use the default Dutch wsdl's
+     */
+    private function getWsdl()
+    {
+        if (!isset($this->authorisation['zone'])) {
+            return $this->authorisation['staging'] ? 'https://public-dis-stage.dpd.nl/Services/ShipmentService.svc?singlewsdl' : 'https://public-dis.dpd.nl/Services/ShipmentService.svc?singlewsdl';
+        }
+        return $this->authorisation['staging'] ? self::TEST_SHIP_WSDL : self::SHIP_WSDL;
     }
 
 }

@@ -23,13 +23,13 @@ class DPDParcelStatus{
         $this->environment = [
             'wsdlCache' => $wsdlCache,
             'parcelStatusWsdl' => ($this->authorisation['staging'] ? self::TEST_PARCELSTATUS_WSDL : self::PARCELSTATUS_WSDL),
-        ];   
+        ];
     }
 
     /**
      * Get the parcel's current status
      * @param  string $awb
-     * @return array 
+     * @return array
      */
     public function getStatus($awb)
     {
@@ -45,9 +45,9 @@ class DPDParcelStatus{
                 'exceptions' => true
             ];
         }
-        
+
         try{
-            
+
             $client = new Soapclient($this->environment['parcelStatusWsdl'], $soapParams);
             $header = new SOAPHeader(self::SOAPHEADER_URL, 'authentication', $this->authorisation['token']);
             $client->__setSoapHeaders($header);
@@ -55,7 +55,7 @@ class DPDParcelStatus{
 
             $check = (array)$response->trackingresult;
             if (empty($check)) {
-                throw new Exception('Parcel not found'); 
+                throw new Exception('Parcel not found');
             }
 
             foreach($response->trackingresult->statusInfo as $statusInfo){
@@ -66,11 +66,19 @@ class DPDParcelStatus{
                         'statusDescription' => $statusInfo->description->content->content,
                     ];
                 }
-            }  
+            }
         }
         catch (SoapFault $e)
         {
-         throw new Exception($e->faultstring);   
+         throw new Exception($e->faultstring);
         }
+    }
+
+    private function getWsdl()
+    {
+        if (!isset($this->authorisation['zone'])) {
+            return $this->authorisation['staging'] ? 'https://public-dis-stage.dpd.nl/Services/ParcelLifeCycleService.svc?singlewsdl' : 'https://public-dis.dpd.nl/Services/ParcelLifeCycleService.svc?singlewsdl';
+        }
+        return $this->authorisation['staging'] ? self::TEST_PARCELSTATUS_WSDL : self::PARCELSTATUS_WSDL;
     }
 }
