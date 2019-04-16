@@ -111,7 +111,8 @@ class DPDShipment{
 
         $this->storeOrderMessage['order']['parcels'][] = [
             'volume' => $volume,
-            'weight' => (int) ceil($array['weight'] / 10)
+            'weight' => (int) ceil($array['weight'] / 10),
+            'customerReferenceNumber1' => $this->storeOrderMessage['order']['generalShipmentData']['mpsCustomerReferenceNumber1'],
         ];
 
     }
